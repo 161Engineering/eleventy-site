@@ -1,7 +1,7 @@
-module.exports = function(eleventyConfig) {
-  return {
-    dir: {
-      output: "docs"
-    }
-  };
+module.exports = function (eleventyConfig) {
+    return {
+        dir: {
+            output: "docs"
+        }
+    };
 };

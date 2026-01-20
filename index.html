@@ -261,15 +261,10 @@
 
         // Определение IP, страны, города и другой информации
         function getLocationInfo() {
-            // API с хорошей поддержкой CORS и работающие из России
+            // Используем API, который поддерживает CORS: ipwhois.app
+            // Надёжный endpoint: https://ipwhois.app/json/?lang=ru
             const apis = [
-                // Попробуем через CORS прокси для API, которые требуют дополнительной защиты
-                'https://api.db-ip.com/v2/free/self',
-                'https://ipwho.is/',
-                'https://geoip.json/api/',
-                'https://api.ip.sb/geoip',
-                'https://ipapi.co/json/',
-                'https://ip-api.com/json/?fields=status,query,country,countryCode,region,regionName,city,timezone,isp,org,currency,lat,lon'
+                'https://ipwhois.app/json/?lang=ru'
             ];
 
             function tryNextApi(apiIndex) {
@@ -398,7 +393,8 @@
         // Измерение пинга
         function measurePing() {
             const start = performance.now();
-            fetch('https://ip-api.com/json/', { method: 'GET' })
+            // Используем тот же CORS-совместимый endpoint для измерения пинга
+            fetch('https://ipwhois.app/json/?lang=ru', { method: 'GET', cache: 'no-store' })
                 .then(() => {
                     const end = performance.now();
                     const ping = Math.round(end - start);
