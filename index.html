@@ -261,48 +261,85 @@
 
         // Определение IP, страны, города и другой информации
         function getLocationInfo() {
-            fetch('https://ipapi.co/json/')
-                .then(response => response.json())
-                .then(data => {
-                    // IP
-                    document.getElementById('ip-info').innerHTML = '<span class="info-label">IP адрес:</span> <span class="info-value">' + data.ip + '</span>';
-
-                    // Страна
-                    document.getElementById('country-info').innerHTML = '<span class="info-label">Страна:</span> <span class="info-value">' + data.country_name + ' (' + data.country_code + ')</span>';
-
-                    // Город
-                    document.getElementById('city-info').innerHTML = '<span class="info-label">Город:</span> <span class="info-value">' + data.city + '</span>';
-
-                    // Область
-                    document.getElementById('region-info').innerHTML = '<span class="info-label">Область/Регион:</span> <span class="info-value">' + (data.region || 'Не указана') + '</span>';
-
-                    // Почтовый индекс
-                    document.getElementById('zip-info').innerHTML = '<span class="info-label">Почтовый индекс:</span> <span class="info-value">' + (data.postal || 'Не указан') + '</span>';
-
-                    // Часовой пояс
-                    document.getElementById('timezone-info').innerHTML = '<span class="info-label">Часовой пояс:</span> <span class="info-value">' + (data.timezone || 'Не указан') + '</span>';
-
-                    // Координаты
-                    const coords = data.latitude + '°N, ' + data.longitude + '°E';
-                    document.getElementById('coords-info').innerHTML = '<span class="info-label">Координаты:</span> <span class="info-value">' + coords + '</span>';
-
-                    // Валюта
-                    document.getElementById('currency-info').innerHTML = '<span class="info-label">Валюта:</span> <span class="info-value">' + (data.currency || 'Не указана') + '</span>';
-
-                    // ISP
-                    document.getElementById('isp-info').innerHTML = '<span class="info-label">Провайдер (ISP):</span> <span class="info-value">' + (data.org || 'Не указан') + '</span>';
-
-                    // VPN/Прокси
-                    const vpnStatus = (data.is_vpn || data.is_proxy) ? 'Да, используется' : 'Нет';
-                    document.getElementById('vpn-info').innerHTML = '<span class="info-label">VPN/Прокси:</span> <span class="info-value">' + vpnStatus + '</span>';
-
-                    // Получение погоды
-                    getWeather(data.city, data.country_code);
-                })
-                .catch(error => {
-                    console.error('Ошибка при определении локации:', error);
+            // Попробуем несколько API с fallback
+            const apis = [
+                'https://ipapi.co/json/',
+                'https://ip-api.com/json/',
+                'https://geo.ip-api.com/json/'
+            ];
+            
+            function tryNextApi(apiIndex) {
+                if (apiIndex >= apis.length) {
+                    // Все API не сработали - показываем ошибку
                     document.getElementById('ip-info').innerHTML = '<span class="info-label">IP адрес:</span> <span class="info-value">Ошибка определения</span>';
-                });
+                    document.getElementById('country-info').innerHTML = '<span class="info-label">Страна:</span> <span class="info-value">Ошибка определения</span>';
+                    document.getElementById('city-info').innerHTML = '<span class="info-label">Город:</span> <span class="info-value">Ошибка определения</span>';
+                    return;
+                }
+                
+                fetch(apis[apiIndex], { timeout: 5000 })
+                    .then(response => {
+                        if (!response.ok) throw new Error('API error');
+                        return response.json();
+                    })
+                    .then(data => {
+                        // IP
+                        const ip = data.ip || data.query || 'Неизвестен';
+                        document.getElementById('ip-info').innerHTML = '<span class="info-label">IP адрес:</span> <span class="info-value">' + ip + '</span>';
+
+                        // Страна
+                        const country = (data.country_name || data.country) ? 
+                            (data.country_name || data.country) + ' (' + (data.country_code || data.countryCode) + ')' : 
+                            'Неизвестна';
+                        document.getElementById('country-info').innerHTML = '<span class="info-label">Страна:</span> <span class="info-value">' + country + '</span>';
+
+                        // Город
+                        const city = data.city || 'Неизвестен';
+                        document.getElementById('city-info').innerHTML = '<span class="info-label">Город:</span> <span class="info-value">' + city + '</span>';
+
+                        // Область
+                        const region = data.region || data.regionName || 'Не указана';
+                        document.getElementById('region-info').innerHTML = '<span class="info-label">Область/Регион:</span> <span class="info-value">' + region + '</span>';
+
+                        // Почтовый индекс
+                        const zip = data.postal || data.zip || 'Не указан';
+                        document.getElementById('zip-info').innerHTML = '<span class="info-label">Почтовый индекс:</span> <span class="info-value">' + zip + '</span>';
+
+                        // Часовой пояс
+                        const timezone = data.timezone || 'Не указан';
+                        document.getElementById('timezone-info').innerHTML = '<span class="info-label">Часовой пояс:</span> <span class="info-value">' + timezone + '</span>';
+
+                        // Координаты
+                        if (data.latitude && data.longitude) {
+                            const coords = data.latitude + '°N, ' + data.longitude + '°E';
+                            document.getElementById('coords-info').innerHTML = '<span class="info-label">Координаты:</span> <span class="info-value">' + coords + '</span>';
+                        } else if (data.lat && data.lon) {
+                            const coords = data.lat + '°N, ' + data.lon + '°E';
+                            document.getElementById('coords-info').innerHTML = '<span class="info-label">Координаты:</span> <span class="info-value">' + coords + '</span>';
+                        }
+
+                        // Валюта
+                        const currency = data.currency || 'Не указана';
+                        document.getElementById('currency-info').innerHTML = '<span class="info-label">Валюта:</span> <span class="info-value">' + currency + '</span>';
+
+                        // ISP
+                        const isp = data.org || data.isp || 'Не указан';
+                        document.getElementById('isp-info').innerHTML = '<span class="info-label">Провайдер (ISP):</span> <span class="info-value">' + isp + '</span>';
+
+                        // VPN/Прокси
+                        const vpnStatus = (data.is_vpn || data.is_proxy) ? 'Да, используется' : 'Нет';
+                        document.getElementById('vpn-info').innerHTML = '<span class="info-label">VPN/Прокси:</span> <span class="info-value">' + vpnStatus + '</span>';
+
+                        // Получение погоды
+                        getWeather(city, data.country_code || data.countryCode);
+                    })
+                    .catch(error => {
+                        console.log('API ' + (apiIndex + 1) + ' failed, trying next...', error);
+                        tryNextApi(apiIndex + 1);
+                    });
+            }
+            
+            tryNextApi(0);
         }
 
         // Получение информации о погоде
@@ -339,7 +376,7 @@
         // Измерение пинга
         function measurePing() {
             const start = performance.now();
-            fetch('https://ipapi.co/json/', { method: 'HEAD' })
+            fetch('https://ip-api.com/json/', { method: 'GET' })
                 .then(() => {
                     const end = performance.now();
                     const ping = Math.round(end - start);
