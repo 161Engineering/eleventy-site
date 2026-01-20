@@ -296,7 +296,7 @@
                     document.getElementById('vpn-info').innerHTML = '<span class="info-label">VPN/Прокси:</span> <span class="info-value">' + vpnStatus + '</span>';
 
                     // Погода
-                    if (city && city !== 'Неизвестен') getWeather(city, countryCode);
+                    if (city && city !== 'Неизвестен') getWeather(city, countryCode, lat, lon);
                 })
                 .catch(error => {
                     console.error('Ошибка при определении локации:', error);
@@ -304,35 +304,62 @@
                 });
         }
 
-        // Получение информации о погоде
-        function getWeather(city, countryCode) {
-            fetch('https://wttr.in/' + city + '?format=j1')
-                .then(response => response.json())
-                .then(data => {
-                    const current = data.current_condition[0];
-                    const temp = current.temp_C;
-                    const desc = current.weatherDesc[0].value;
-                    const humidity = current.humidity;
-                    const windSpeed = current.windspeedKmph;
+        // Получение информации о погоде — сначала через open-meteo по координатам, затем откат на wttr.in
+        function getWeather(city, countryCode, lat, lon) {
+            function fetchWttr(cityName) {
+                const url = 'https://wttr.in/' + encodeURIComponent(cityName) + '?format=j1&lang=ru';
+                return fetch(url)
+                    .then(res => { if (!res.ok) throw new Error('HTTP ' + res.status); return res.json(); })
+                    .then(data => {
+                        const current = data.current_condition[0];
+                        const temp = current.temp_C;
+                        const desc = (current.weatherDesc && current.weatherDesc[0]) ? current.weatherDesc[0].value : '';
+                        const humidity = current.humidity;
+                        const windSpeed = current.windspeedKmph;
 
-                    let weatherIcon = '🌤️';
-                    if (desc.includes('Sunny') || desc.includes('Clear')) weatherIcon = '☀️';
-                    else if (desc.includes('Cloud')) weatherIcon = '☁️';
-                    else if (desc.includes('Rain')) weatherIcon = '🌧️';
-                    else if (desc.includes('Snow')) weatherIcon = '❄️';
-                    else if (desc.includes('Mist') || desc.includes('Fog')) weatherIcon = '🌫️';
+                        let weatherIcon = '🌤️';
+                        if (/Sunny|Clear|Ясно|Солнечно/i.test(desc)) weatherIcon = '☀️';
+                        else if (/Cloud|Облачно/i.test(desc)) weatherIcon = '☁️';
+                        else if (/Rain|Дожд/i.test(desc)) weatherIcon = '🌧️';
+                        else if (/Snow|Снег/i.test(desc)) weatherIcon = '❄️';
+                        else if (/Mist|Fog|Туман|Мгла/i.test(desc)) weatherIcon = '🌫️';
 
-                    const weatherHtml = '<div class="weather-icon">' + weatherIcon + '</div>' +
-                        '<div><strong>' + temp + '°C</strong> - ' + desc + '</div>' +
-                        '<div style="margin-top: 10px; font-size: 13px;">💧 Влажность: ' + humidity + '%</div>' +
-                        '<div style="font-size: 13px;">💨 Ветер: ' + windSpeed + ' км/ч</div>';
+                        const weatherHtml = '<div class="weather-icon">' + weatherIcon + '</div>' +
+                            '<div><strong>' + temp + '°C</strong> - ' + desc + '</div>' +
+                            '<div style="margin-top: 10px; font-size: 13px;">💧 Влажность: ' + humidity + '%</div>' +
+                            '<div style="font-size: 13px;">💨 Ветер: ' + windSpeed + ' км/ч</div>';
 
-                    document.getElementById('weather-info').innerHTML = weatherHtml;
-                })
-                .catch(error => {
+                        document.getElementById('weather-info').innerHTML = weatherHtml;
+                    });
+            }
+
+            if (lat && lon) {
+                const omUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + encodeURIComponent(lat) + '&longitude=' + encodeURIComponent(lon) + '&current_weather=true&temperature_unit=celsius&windspeed_unit=kmh&timezone=auto';
+                fetch(omUrl)
+                    .then(res => { if (!res.ok) throw new Error('HTTP ' + res.status); return res.json(); })
+                    .then(data => {
+                        const current = data.current_weather;
+                        if (!current) throw new Error('No current_weather');
+                        const temp = current.temperature;
+                        const windSpeed = current.windspeed;
+                        const weatherHtml = '<div class="weather-icon">🌤️</div>' +
+                            '<div><strong>' + temp + '°C</strong></div>' +
+                            '<div style="margin-top: 10px; font-size: 13px;">💨 Ветер: ' + windSpeed + ' км/ч</div>';
+                        document.getElementById('weather-info').innerHTML = weatherHtml;
+                    })
+                    .catch(err => {
+                        console.warn('open-meteo failed, falling back to wttr.in', err);
+                        fetchWttr(city).catch(error => {
+                            console.error('Ошибка при получении погоды:', error);
+                            document.getElementById('weather-info').innerHTML = '<div class="info-value">Ошибка определения погоды</div>';
+                        });
+                    });
+            } else {
+                fetchWttr(city).catch(error => {
                     console.error('Ошибка при получении погоды:', error);
                     document.getElementById('weather-info').innerHTML = '<div class="info-value">Ошибка определения погоды</div>';
                 });
+            }
         }
 
         // Измерение пинга
