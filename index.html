@@ -261,13 +261,15 @@
 
         // Определение IP, страны, города и другой информации
         function getLocationInfo() {
-            // Попробуем несколько API с fallback (включая работающие из России)
+            // API с хорошей поддержкой CORS и работающие из России
             const apis = [
-                'https://ip-api.com/json/?fields=status,query,country,countryCode,region,regionName,city,timezone,isp,org,currency,lat,lon',
-                'https://ipapi.co/json/',
+                // Попробуем через CORS прокси для API, которые требуют дополнительной защиты
+                'https://api.db-ip.com/v2/free/self',
+                'https://ipwho.is/',
                 'https://geoip.json/api/',
                 'https://api.ip.sb/geoip',
-                'https://ifconfig.io/all.json'
+                'https://ipapi.co/json/',
+                'https://ip-api.com/json/?fields=status,query,country,countryCode,region,regionName,city,timezone,isp,org,currency,lat,lon'
             ];
 
             function tryNextApi(apiIndex) {
@@ -279,34 +281,44 @@
                     return;
                 }
 
-                fetch(apis[apiIndex], { timeout: 10000 })
+                fetch(apis[apiIndex], {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                })
                     .then(response => {
-                        if (!response.ok) throw new Error('API error');
+                        if (!response.ok) throw new Error('HTTP error ' + response.status);
                         return response.json();
                     })
                     .then(data => {
-                        // Проверяем статус для ip-api
-                        if (data.status && data.status !== 'success' && data.status !== 'ok') {
-                            throw new Error('API returned non-success status');
+                        // Проверяем статус для API, которые его возвращают
+                        if (data.status && data.status !== 'success' && data.status !== 'ok' && data.status !== true) {
+                            throw new Error('API returned non-success status: ' + data.status);
                         }
 
-                        // IP - пробуем разные поля
-                        const ip = data.ip || data.query || data['client_ip'] || data.ip_address || 'Неизвестен';
+                        // Пропускаем если нет нужных данных
+                        if (!data.ip && !data.query && !data.ipAddress) {
+                            throw new Error('No IP data in response');
+                        }
+
+                        // IP - пробуем разные поля (включая db-ip и ipwho форматы)
+                        const ip = data.ip || data.query || data.ipAddress || data['client_ip'] || data.ip_address || 'Неизвестен';
                         document.getElementById('ip-info').innerHTML = '<span class="info-label">IP адрес:</span> <span class="info-value">' + ip + '</span>';
 
-                        // Страна
-                        const countryCode = data.country_code || data.countryCode || data.country_iso_code || '';
-                        const countryName = data.country_name || data.country || data.country_name_en || '';
+                        // Страна (db-ip: countryCode, ipwho: country_code, ip-api: countryCode)
+                        const countryCode = data.countryCode || data.country_code || data.country_iso_code || '';
+                        const countryName = data.countryName || data.country_name || data.country || '';
                         const country = countryName && countryCode ?
                             countryName + ' (' + countryCode + ')' :
                             (countryName || 'Неизвестна');
                         document.getElementById('country-info').innerHTML = '<span class="info-label">Страна:</span> <span class="info-value">' + country + '</span>';
 
-                        // Город
-                        const city = data.city || data.city_name || 'Неизвестен';
+                        // Город (db-ip: city, ipwho: city, ip-api: city)
+                        const city = data.city || 'Неизвестен';
                         document.getElementById('city-info').innerHTML = '<span class="info-label">Город:</span> <span class="info-value">' + city + '</span>';
 
-                        // Область
+                        // Область (db-ip: region, ip-api: regionName)
                         const region = data.region || data.regionName || data.region_name || data.state || 'Не указана';
                         document.getElementById('region-info').innerHTML = '<span class="info-label">Область/Регион:</span> <span class="info-value">' + region + '</span>';
 
@@ -318,7 +330,7 @@
                         const timezone = data.timezone || data.time_zone || 'Не указан';
                         document.getElementById('timezone-info').innerHTML = '<span class="info-label">Часовой пояс:</span> <span class="info-value">' + timezone + '</span>';
 
-                        // Координаты
+                        // Координаты (разные форматы)
                         let lat = data.latitude || data.lat;
                         let lon = data.longitude || data.lon;
                         if (lat && lon) {
@@ -330,12 +342,12 @@
                         const currency = data.currency || data.currency_code || 'Не указана';
                         document.getElementById('currency-info').innerHTML = '<span class="info-label">Валюта:</span> <span class="info-value">' + currency + '</span>';
 
-                        // ISP
-                        const isp = data.org || data.isp || data.organization || 'Не указан';
+                        // ISP (разные названия в разных API)
+                        const isp = data.isp || data.org || data.organization || data.connection || 'Не указан';
                         document.getElementById('isp-info').innerHTML = '<span class="info-label">Провайдер (ISP):</span> <span class="info-value">' + isp + '</span>';
 
                         // VPN/Прокси
-                        const vpnStatus = (data.is_vpn || data.is_proxy) ? 'Да, используется' : 'Нет';
+                        const vpnStatus = (data.is_vpn || data.is_proxy || data.isVpn) ? 'Да, используется' : 'Нет';
                         document.getElementById('vpn-info').innerHTML = '<span class="info-label">VPN/Прокси:</span> <span class="info-value">' + vpnStatus + '</span>';
 
                         // Получение погоды
@@ -344,7 +356,7 @@
                         }
                     })
                     .catch(error => {
-                        console.log('API ' + (apiIndex + 1) + ' failed, trying next...', error);
+                        console.log('API ' + (apiIndex + 1) + ' failed: ' + error.message + ', trying next...', error);
                         tryNextApi(apiIndex + 1);
                     });
             }
