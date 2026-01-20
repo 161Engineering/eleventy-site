@@ -231,27 +231,28 @@
 
         // Определение информации об устройстве
         function getDeviceInfo() {
-            // ОС
-            const ua = navigator.userAgent;
+            const ua = navigator.userAgent || '';
+
+            // ОС: проверяем Android перед Linux, и используем регексы без чувствительности к регистру
             let os = 'Неизвестна';
-            if (ua.includes('Windows')) os = 'Windows';
-            else if (ua.includes('Mac')) os = 'macOS';
-            else if (ua.includes('Linux')) os = 'Linux';
-            else if (ua.includes('Android')) os = 'Android';
-            else if (ua.includes('iPhone') || ua.includes('iPad')) os = 'iOS';
+            if (/Android/i.test(ua)) os = 'Android';
+            else if (/iPhone|iPad|iPod/i.test(ua)) os = 'iOS';
+            else if (/Windows/i.test(ua)) os = 'Windows';
+            else if (/Macintosh|Mac OS X/i.test(ua)) os = 'macOS';
+            else if (/Linux/i.test(ua)) os = 'Linux';
             document.getElementById('os-info').innerHTML = '<span class="info-label">Операционная система:</span> <span class="info-value">' + os + '</span>';
 
-            // Браузер
+            // Браузер — более корректное определение с учётом разных UA
             let browser = 'Неизвестен';
-            if (ua.includes('Chrome')) browser = 'Chrome';
-            else if (ua.includes('Safari')) browser = 'Safari';
-            else if (ua.includes('Firefox')) browser = 'Firefox';
-            else if (ua.includes('Edge')) browser = 'Edge';
-            else if (ua.includes('Opera')) browser = 'Opera';
+            if (/CriOS|Chrome/i.test(ua)) browser = 'Chrome';
+            else if (/Edg/i.test(ua)) browser = 'Edge';
+            else if (/Firefox/i.test(ua)) browser = 'Firefox';
+            else if (/Safari/i.test(ua) && !/Chrome/i.test(ua)) browser = 'Safari';
+            else if (/OPR|Opera/i.test(ua)) browser = 'Opera';
             document.getElementById('browser-info').innerHTML = '<span class="info-label">Браузер:</span> <span class="info-value">' + browser + '</span>';
 
             // Разрешение экрана
-            const resolution = window.screen.width + ' x ' + window.screen.height;
+            const resolution = (window.screen && window.screen.width ? window.screen.width : 0) + ' x ' + (window.screen && window.screen.height ? window.screen.height : 0);
             document.getElementById('resolution-info').innerHTML = '<span class="info-label">Разрешение экрана:</span> <span class="info-value">' + resolution + '</span>';
 
             // Язык браузера
