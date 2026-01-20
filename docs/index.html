@@ -230,7 +230,7 @@
         setInterval(updateTime, 1000);
 
         // Определение информации об устройстве
-        function getDeviceInfo() {
+        async function getDeviceInfo() {
             const ua = navigator.userAgent || '';
 
             // ОС: проверяем Android перед Linux, и используем регексы без чувствительности к регистру
@@ -242,13 +242,25 @@
             else if (/Linux/i.test(ua)) os = 'Linux';
             document.getElementById('os-info').innerHTML = '<span class="info-label">Операционная система:</span> <span class="info-value">' + os + '</span>';
 
-            // Браузер — более корректное определение с учётом разных UA
+            // Браузер — сначала проверяем Brave через его API, затем остальные
             let browser = 'Неизвестен';
-            if (/CriOS|Chrome/i.test(ua)) browser = 'Chrome';
-            else if (/Edg/i.test(ua)) browser = 'Edge';
-            else if (/Firefox/i.test(ua)) browser = 'Firefox';
-            else if (/Safari/i.test(ua) && !/Chrome/i.test(ua)) browser = 'Safari';
-            else if (/OPR|Opera/i.test(ua)) browser = 'Opera';
+            if (navigator.brave && typeof navigator.brave.isBrave === 'function') {
+                try {
+                    const isBrave = await navigator.brave.isBrave();
+                    if (isBrave) browser = 'Brave';
+                } catch (e) {
+                    // ignore
+                }
+            }
+
+            if (browser === 'Неизвестен') {
+                if (/Edg/i.test(ua)) browser = 'Edge';
+                else if (/OPR|Opera/i.test(ua)) browser = 'Opera';
+                else if (/CriOS|Chrome/i.test(ua)) browser = 'Chrome';
+                else if (/Firefox/i.test(ua)) browser = 'Firefox';
+                else if (/Safari/i.test(ua) && !/Chrome/i.test(ua)) browser = 'Safari';
+            }
+
             document.getElementById('browser-info').innerHTML = '<span class="info-label">Браузер:</span> <span class="info-value">' + browser + '</span>';
 
             // Разрешение экрана
