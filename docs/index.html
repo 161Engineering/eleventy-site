@@ -253,6 +253,21 @@
                 }
             }
 
+            // Дополнительные эвристики: userAgentData.brands и строковая проверка UA
+            if (browser === 'Неизвестен') {
+                try {
+                    if (navigator.userAgentData && Array.isArray(navigator.userAgentData.brands)) {
+                        if (navigator.userAgentData.brands.some(b => /Brave/i.test(b.brand || ''))) browser = 'Brave';
+                    }
+                } catch (e) {
+                    // ignore
+                }
+            }
+
+            if (browser === 'Неизвестен' && /Brave/i.test(ua)) {
+                browser = 'Brave';
+            }
+
             if (browser === 'Неизвестен') {
                 if (/Edg/i.test(ua)) browser = 'Edge';
                 else if (/OPR|Opera/i.test(ua)) browser = 'Opera';
